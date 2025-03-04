@@ -1,0 +1,745 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Twin-Cities-Explorer">
+  <client>
+    <src>
+      <components>
+        <file name="CityMap.tsx">
+<![CDATA[
+import { Card } from "@/components/ui/card";
+import { MapPin } from "lucide-react";
+import type { PlaceOfInterest } from "@shared/schema";
+
+interface CityMapProps {
+  lat: number;
+  lon: number;
+  places: PlaceOfInterest[];
+}
+
+export function CityMap({ lat, lon, places }: CityMapProps) {
+  // Convert lat/lon to simple x,y coordinates for visualization
+  const getPosition = (latitude: string, longitude: string) => {
+    const centerLat = Number(lat);
+    const centerLon = Number(lon);
+    const latDiff = Number(latitude) - centerLat;
+    const lonDiff = Number(longitude) - centerLon;
+
+    // Scale the differences to fit in our 400x400 viewport
+    const x = 200 + (lonDiff * 1000);
+    const y = 200 - (latDiff * 1000);
+
+    return { x, y };
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="w-full h-[400px] relative bg-slate-100 rounded-lg overflow-hidden">
+        <svg width="100%" height="100%" viewBox="0 0 400 400">
+          {/* Center point */}
+          <circle cx="200" cy="200" r="5" fill="red" />
+          <text x="210" y="200" fontSize="12">City Center</text>
+
+          {/* Places of interest */}
+          {places.map((place) => {
+            const pos = getPosition(place.latitude, place.longitude);
+            return (
+              <g key={place.id}>
+                <circle cx={pos.x} cy={pos.y} r="4" fill="blue" />
+                <text x={pos.x + 10} y={pos.y} fontSize="10">{place.name}</text>
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Legend */}
+        <div className="absolute bottom-4 left-4 bg-white p-2 rounded shadow">
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-blue-500" />
+            <span>Places of Interest</span>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+]]>
+        </file>
+        <file name="WeatherWidget.tsx">
+<![CDATA[
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cloud, Sun, Thermometer } from "lucide-react";
+import { mockWeather } from "@/lib/mockData";
+
+interface WeatherWidgetProps {
+  cityName: string;
+}
+
+export function WeatherWidget({ cityName }: WeatherWidgetProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Cloud className="h-5 w-5" />
+          Weather in {cityName}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Thermometer className="h-5 w-5" />
+            <span>{Math.round(mockWeather.main.temp)}°C</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Sun className="h-5 w-5" />
+            <span>{mockWeather.weather[0].main}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+]]>
+        </file>
+        <file name="CommentSection.tsx">
+<![CDATA[
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { MessageSquare } from "lucide-react";
+import { motion } from "framer-motion";
+import { apiRequest } from "@/lib/queryClient";
+import type { Comment } from "@shared/schema";
+
+interface CommentSectionProps {
+  cityId: number;
+}
+
+export function CommentSection({ cityId }: CommentSectionProps) {
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: comments, isLoading } = useQuery<Comment[]>({
+    queryKey: [`/api/cities/${cityId}/comments`],
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (comment: { userName: string; content: string }) => {
+      await apiRequest("POST", `/api/cities/${cityId}/comments`, comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/cities/${cityId}/comments`] });
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim() && content.trim()) {
+      await mutation.mutateAsync({ userName: name, content });
+      setContent("");
+    }
+  };
+
+  return (
+    <Card className="bg-white/80 backdrop-blur-sm border-gray-100">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          Comments
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <motion.form
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          onSubmit={handleSubmit}
+          className="space-y-4 mb-8"
+        >
+          <Input
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="bg-white/50 border-gray-200"
+          />
+          <Textarea
+            placeholder="Share your thoughts about this city..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="bg-white/50 border-gray-200 min-h-[100px]"
+          />
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            className="w-full bg-primary hover:bg-primary/90"
+          >
+            {mutation.isPending ? "Posting..." : "Post Comment"}
+          </Button>
+        </motion.form>
+
+        <div className="space-y-6">
+          {isLoading ? (
+            <p className="text-center text-gray-500">Loading comments...</p>
+          ) : (
+            comments?.map((comment, index) => (
+              <motion.div
+                key={comment.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white/50 backdrop-blur-sm rounded-lg p-4 border border-gray-100"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-gray-900">{comment.userName}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(comment.createdAt!).toLocaleDateString()}
+                  </p>
+                </div>
+                <p className="text-gray-700">{comment.content}</p>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+]]>
+        </file>
+      </components>
+      <pages>
+        <file name="Home.tsx">
+<![CDATA[
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SearchBar } from "@/components/SearchBar";
+import type { City } from "@shared/schema";
+import { Building2 } from "lucide-react";
+
+export default function Home() {
+  const { data: cities } = useQuery<City[]>({
+    queryKey: ["/api/cities"],
+  });
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="container mx-auto px-4 py-16"
+      >
+        <div className="text-center mb-12">
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-block p-3 rounded-full bg-primary/10 mb-4"
+          >
+            <Building2 className="h-8 w-8 text-primary" />
+          </motion.div>
+          <motion.h1 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
+          >
+            Twin Cities Explorer
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg text-gray-600 max-w-2xl mx-auto"
+          >
+            Discover and explore UK cities and their international twin cities
+          </motion.p>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <SearchBar />
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-16"
+        >
+          {cities?.map((city, index) => (
+            <motion.div
+              key={city.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 * index }}
+            >
+              <Card className="h-full hover:shadow-lg transition-shadow duration-300 bg-white/50 backdrop-blur-sm border-transparent hover:border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    {city.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">{city.description}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm">
+                      <span className="font-medium">Population:</span>{" "}
+                      {city.population?.toLocaleString()}
+                    </p>
+                    {city.twinCities && (
+                      <p className="text-sm">
+                        <span className="font-medium">Twin Cities:</span>{" "}
+                        {city.twinCities.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
+]]>
+        </file>
+        <file name="CityDetail.tsx">
+<![CDATA[
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "wouter";
+import { motion } from "framer-motion";
+import { CityMap } from "@/components/CityMap";
+import { WeatherWidget } from "@/components/WeatherWidget";
+import { CommentSection } from "@/components/CommentSection";
+import { Building2, Users, Globe } from "lucide-react";
+import type { City, PlaceOfInterest } from "@shared/schema";
+
+export default function CityDetail() {
+  const { cityName } = useParams();
+
+  const { data: city, isLoading: cityLoading } = useQuery<City>({
+    queryKey: [`/api/cities/search/${cityName}`],
+  });
+
+  const { data: places } = useQuery<PlaceOfInterest[]>({
+    queryKey: [`/api/cities/${city?.id}/places`],
+    enabled: !!city?.id,
+  });
+
+  if (cityLoading || !city) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-xl text-gray-600"
+        >
+          Loading city details...
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="container mx-auto px-4 py-12"
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-center mb-12"
+        >
+          <div className="inline-block p-3 rounded-full bg-primary/10 mb-4">
+            <Building2 className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {city.name}
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            {city.description}
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center gap-3 text-lg">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="font-medium">Population:</span>
+              <span>{city.population?.toLocaleString()}</span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-lg mb-2">
+                <Globe className="h-5 w-5 text-primary" />
+                <span className="font-medium">Twin Cities:</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {city.twinCities?.map((twinCity) => (
+                  <motion.div
+                    key={twinCity}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 shadow-sm"
+                  >
+                    {twinCity}
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <WeatherWidget cityName={city.name} />
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-12"
+        >
+          <CityMap
+            lat={Number(city.latitude)}
+            lon={Number(city.longitude)}
+            places={places || []}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <CommentSection cityId={city.id} />
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
+]]>
+        </file>
+      </pages>
+      <file name="App.tsx">
+<![CDATA[
+import { Switch, Route } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { Toaster } from "@/components/ui/toaster";
+import Home from "@/pages/Home";
+import CityDetail from "@/pages/CityDetail";
+import NotFound from "@/pages/not-found";
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Home} />
+      <Route path="/city/:cityName" component={CityDetail} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router />
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+export default App;
+]]>
+      </file>
+    </src>
+  </client>
+  <server>
+    <file name="routes.ts">
+<![CDATA[
+import type { Express } from "express";
+import { createServer } from "http";
+import { storage } from "./storage";
+import { insertCitySchema, insertCommentSchema } from "@shared/schema";
+
+export async function registerRoutes(app: Express) {
+  // Cities
+  app.get("/api/cities", async (_req, res) => {
+    const cities = await storage.getCities();
+    res.json(cities);
+  });
+
+  app.get("/api/cities/:id", async (req, res) => {
+    const city = await storage.getCity(parseInt(req.params.id));
+    if (!city) {
+      res.status(404).json({ message: "City not found" });
+      return;
+    }
+    res.json(city);
+  });
+
+  app.get("/api/cities/search/:name", async (req, res) => {
+    const city = await storage.getCityByName(req.params.name);
+    if (!city) {
+      res.status(404).json({ message: "City not found" });
+      return;
+    }
+    res.json(city);
+  });
+
+  // Places of Interest
+  app.get("/api/cities/:cityId/places", async (req, res) => {
+    const places = await storage.getPlacesByCity(parseInt(req.params.cityId));
+    res.json(places);
+  });
+
+  // Comments
+  app.get("/api/cities/:cityId/comments", async (req, res) => {
+    const comments = await storage.getCommentsByCity(parseInt(req.params.cityId));
+    res.json(comments);
+  });
+
+  app.post("/api/cities/:cityId/comments", async (req, res) => {
+    try {
+      const cityId = parseInt(req.params.cityId);
+      const comment = insertCommentSchema.parse({ ...req.body, cityId });
+      const newComment = await storage.createComment(comment);
+      res.json(newComment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid comment data" });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
+]]>
+    </file>
+    <file name="storage.ts">
+<![CDATA[
+import {
+  type City,
+  type InsertCity,
+  type PlaceOfInterest,
+  type InsertPlaceOfInterest,
+  type Comment,
+  type InsertComment,
+} from "@shared/schema";
+
+export interface IStorage {
+  // Cities
+  getCities(): Promise<City[]>;
+  getCity(id: number): Promise<City | undefined>;
+  getCityByName(name: string): Promise<City | undefined>;
+  createCity(city: InsertCity): Promise<City>;
+
+  // Places of Interest
+  getPlacesByCity(cityId: number): Promise<PlaceOfInterest[]>;
+  createPlace(place: InsertPlaceOfInterest): Promise<PlaceOfInterest>;
+
+  // Comments
+  getCommentsByCity(cityId: number): Promise<Comment[]>;
+  createComment(comment: InsertComment): Promise<Comment>;
+}
+
+// Initial mock data
+const initialCities: City[] = [
+  {
+    id: 1,
+    name: "London",
+    country: "United Kingdom",
+    population: 8982000,
+    latitude: "51.5074",
+    longitude: "-0.1278",
+    description: "Capital city of the United Kingdom, known for its rich history and iconic landmarks.",
+    twinCities: ["Berlin", "Paris", "New York", "Tokyo"],
+  },
+  {
+    id: 2,
+    name: "Manchester",
+    country: "United Kingdom",
+    population: 547627,
+    latitude: "53.4808",
+    longitude: "-2.2426",
+    description: "Major city in the northwest of England, famous for its industrial heritage and football clubs.",
+    twinCities: ["Dusseldorf", "St Petersburg", "Los Angeles"],
+  }
+];
+
+const initialPlaces: PlaceOfInterest[] = [
+  {
+    id: 1,
+    cityId: 1,
+    name: "Big Ben",
+    type: "Landmark",
+    latitude: "51.5007",
+    longitude: "-0.1246",
+    description: "Famous clock tower at the north end of Houses of Parliament",
+  },
+  {
+    id: 2,
+    cityId: 1,
+    name: "Tower Bridge",
+    type: "Bridge",
+    latitude: "51.5055",
+    longitude: "-0.0754",
+    description: "Combined bascule and suspension bridge",
+  },
+  {
+    id: 3,
+    cityId: 2,
+    name: "Old Trafford",
+    type: "Stadium",
+    latitude: "53.4631",
+    longitude: "-2.2913",
+    description: "Home stadium of Manchester United Football Club",
+  },
+];
+
+export class MemStorage implements IStorage {
+  private cities: Map<number, City>;
+  private places: Map<number, PlaceOfInterest>;
+  private comments: Map<number, Comment>;
+  private currentIds: { city: number; place: number; comment: number };
+
+  constructor() {
+    this.cities = new Map();
+    this.places = new Map();
+    this.comments = new Map();
+    this.currentIds = { 
+      city: Math.max(...initialCities.map(c => c.id)) + 1,
+      place: Math.max(...initialPlaces.map(p => p.id)) + 1,
+      comment: 1 
+    };
+
+    // Initialize with mock data
+    initialCities.forEach(city => this.cities.set(city.id, city));
+    initialPlaces.forEach(place => this.places.set(place.id, place));
+  }
+
+  async getCities(): Promise<City[]> {
+    return Array.from(this.cities.values());
+  }
+
+  async getCity(id: number): Promise<City | undefined> {
+    return this.cities.get(id);
+  }
+
+  async getCityByName(name: string): Promise<City | undefined> {
+    return Array.from(this.cities.values()).find(
+      (city) => city.name.toLowerCase() === name.toLowerCase()
+    );
+  }
+
+  async createCity(insertCity: InsertCity): Promise<City> {
+    const id = this.currentIds.city++;
+    const city: City = { ...insertCity, id };
+    this.cities.set(id, city);
+    return city;
+  }
+
+  async getPlacesByCity(cityId: number): Promise<PlaceOfInterest[]> {
+    return Array.from(this.places.values()).filter(
+      (place) => place.cityId === cityId
+    );
+  }
+
+  async createPlace(insertPlace: InsertPlaceOfInterest): Promise<PlaceOfInterest> {
+    const id = this.currentIds.place++;
+    const place: PlaceOfInterest = { ...insertPlace, id };
+    this.places.set(id, place);
+    return place;
+  }
+
+  async getCommentsByCity(cityId: number): Promise<Comment[]> {
+    return Array.from(this.comments.values())
+      .filter((comment) => comment.cityId === cityId)
+      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+  }
+
+  async createComment(insertComment: InsertComment): Promise<Comment> {
+    const id = this.currentIds.comment++;
+    const comment: Comment = {
+      ...insertComment,
+      id,
+      createdAt: new Date(),
+    };
+    this.comments.set(id, comment);
+    return comment;
+  }
+}
+
+export const storage = new MemStorage();
+]]>
+    </file>
+  </server>
+  <shared>
+    <file name="schema.ts">
+<![CDATA[
+import { pgTable, text, serial, integer, timestamp, numeric } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const cities = pgTable("cities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  country: text("country").notNull(),
+  population: integer("population"),
+  latitude: numeric("latitude").notNull(),
+  longitude: numeric("longitude").notNull(),
+  description: text("description"),
+  twinCities: text("twin_cities").array(),
+});
+
+export const placesOfInterest = pgTable("places_of_interest", {
+  id: serial("id").primaryKey(),
+  cityId: integer("city_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  latitude: numeric("latitude").notNull(),
+  longitude: numeric("longitude").notNull(),
+  description: text("description"),
+});
+
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  cityId: integer("city_id").notNull(),
+  userName: text("user_name").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCitySchema = createInsertSchema(cities);
+export const insertPlaceSchema = createInsertSchema(placesOfInterest);
+export const insertCommentSchema = createInsertSchema(comments).omit({ createdAt: true });
+
+export type City = typeof cities.$inferSelect;
+export type InsertCity = z.infer<typeof insertCitySchema>;
+export type PlaceOfInterest = typeof placesOfInterest.$inferSelect;
+export type InsertPlaceOfInterest = z.infer<typeof insertPlaceSchema>;
+export type Comment = typeof comments.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+]]>
+    </file>
+  </shared>
+</project>
