@@ -1,0 +1,46 @@
+Create a fully functional web application for the "Twin and Sister Cities" project, where users can explore cities and their twin towns around the world. The website should integrate external APIs, store and retrieve data from a MySQL database, and provide interactive features such as maps, weather forecasts, and places of interest.
+
+Requirements:
+Frontend Development (User Interface):
+
+Design a responsive website using HTML, CSS, and JavaScript.
+City Search Page: Users should be able to search for a city (UK city or town) and see its twin cities with relevant data.
+City Detail Page: Show detailed information for the selected city (e.g., name, population, geo-location, places of interest).
+Map Integration: Use a map API (e.g., Google Maps) to display interactive maps of the cities and their twin cities. Show at least 6 places of interest (e.g., stadiums, universities) on the map with clickable icons that display additional information (e.g., photos, description).
+Weather Section: Use a weather API to display current and forecast weather data for the selected cities.
+Comments Section: Allow users to submit and view comments related to cities and places of interest. The comments should be stored in the database and retrieved dynamically.
+Photo Gallery: Integrate a photo API (e.g., Flickr) to display images of the cities/towns and places of interest.
+Responsive Design: Ensure the website is fully responsive, with a smooth experience across desktop and mobile devices.
+Backend Development:
+
+Languages/Technologies: Use PHP or Node.js for backend development.
+Database: Implement a MySQL database to store:
+City information (name, country, population, geo-location, currency, etc.).
+Places of interest data (name, type, capacity, geo-location, photos, etc.).
+Weather data (for current and forecast information).
+User comments (name, comment, timestamp).
+API Integration: Integrate the following external APIs:
+Mapping API: Google Maps or similar to display maps.
+Weather API: OpenWeatherMap or similar to display weather forecasts.
+Photo API: Flickr or similar to display photos related to cities and places of interest.
+Configuration File: Create a configuration file to store API keys, database connection settings, and other global variables.
+RSS Feed:
+
+Generate an RSS feed from the database to display news or updates related to the cities and places of interest. Ensure that the RSS feed is dynamically generated and valid.
+Database Schema:
+
+Use a logical ER model based on the following:
+Entities: Cities, Places of Interest, Weather, Comments, Photos.
+Relationships: Many-to-one (e.g., places of interest belong to cities), one-to-many (e.g., cities have many comments), etc.
+Implement SQL queries to fetch and display relevant data on the frontend.
+Deployment:
+
+Deploy the web application to a server (e.g., Heroku, AWS, or a similar platform).
+Ensure that all components are properly integrated and functional.
+Expected Output:
+A fully functional website with the ability to search cities and view twin cities, maps, weather, and places of interest.
+A MySQL database to store all the relevant data.
+Interactive and dynamic pages using external APIs (map, weather, photos).
+A working RSS feed for city-related news.
+Fully documented code, with inline comments explaining key parts of the system.
+A responsive design suitable for both desktop and mobile users.
