@@ -22,26 +22,6 @@ A modern web application for exploring UK cities and their international twin ci
 - **Data Storage**: In-memory storage (ready for PostgreSQL integration)
 - **Type Safety**: TypeScript, Zod
 
-## Getting Started
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/musadiqqureshi/Weather-APP.git
-   cd Weather-APP
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open [http://localhost:5000](http://localhost:5000) to view the application
-
 ## Project Structure
 
 ```
@@ -64,14 +44,6 @@ A modern web application for exploring UK cities and their international twin ci
 - `npm run build` - Build for production
 - `npm start` - Start production server
 - `npm run check` - Type-check TypeScript
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## License
 
